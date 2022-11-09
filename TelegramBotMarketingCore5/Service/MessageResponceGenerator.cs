@@ -5,11 +5,13 @@ using System.Text;
 using System.Threading.Tasks;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
+using TelegramBotMarketing.Domain;
 using TelegramBotMarketing.Service.Abstract;
 using TelegramBotMarketingCore5.Domain;
 using TelegramBotMarketingCore5.Repository.Abstract;
 using TelegramBotMarketingCore5.Service.Abstract;
 using TelegramBotMarketingCore5.Utility;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace TelegramBotMarketing.Service
 {
@@ -27,62 +29,66 @@ namespace TelegramBotMarketing.Service
 			this.config = config;
 		}
 
+		ResponceResult GetNonPollMessageResponce(string messageText)
+		{
+			if (config.Contains(templateTextAnswersFile, messageText))
+				return new ResponceResult() { type = ResponceResultType.Valid, message = config[templateTextAnswersFile, messageText] };
+			else
+				return new ResponceResult()
+				{
+					type = ResponceResultType.Valid,
+					message = config[systemAnswersFile, "dontUnderstand"]
+				};
+		}
+
+		async Task<ResponceResult> GetPollAnswerMessageResponce(UserData user, Message message)
+		{
+			var result = await pollAnswerManager.TryAddAnswer(message);
+			var next = result.nextQuestion;
+
+			KeyboardButton[][] buttons = null;
+			if (next != null && next.answerType == AnswerTypes.List)
+				buttons = ButtonExtensions.GenerateButtonSet(next.answerList);
+
+			if (!result.valid)
+			{
+				return new ResponceResult()
+				{
+					type = ResponceResultType.Valid,
+					message = result.errorText,
+					buttons = buttons
+				};
+			}
+
+			if (next != null)
+			{
+				return new ResponceResult()
+				{
+					type = ResponceResultType.Valid,
+					message = config[systemAnswersFile, "nextQuestion"] + result.nextQuestion.questionText,
+					buttons = buttons
+				};
+			}
+			else
+			{
+				user.pollState = PollState.Completed;
+				await userRepository.Update(user);
+				return new ResponceResult()
+				{
+					type = ResponceResultType.Valid,
+					message = config[systemAnswersFile, "pollComplete"]
+				};
+			}
+		}
+
 		public async Task<ResponceResult> GenerateResponce(Message message)
 		{
 			string text = message.Text.Trim().ToLower();
 			var user = await userRepository.Get(message.Chat.Id);
 			if (user == null || user.pollState != Domain.PollState.Started)
-			{
-				if (config.Contains(templateTextAnswersFile, text))
-					return new ResponceResult() { type = ResponceResultType.Valid, message = config[templateTextAnswersFile, text] };
-				else
-					return new ResponceResult()
-					{
-						type = ResponceResultType.Valid,
-						message = config[systemAnswersFile, "dontUnderstand"]
-					};
-			}
+				return GetNonPollMessageResponce(text);
 			else if (user != null)
-			{
-				var result = await pollAnswerManager.TryAddAnswer(message);
-				var next = result.nextQuestion;
-
-				if (!result.valid)
-				{
-					KeyboardButton[][] buttons = null;
-					if (next != null && next.answerType == AnswerTypes.List)
-						buttons = ButtonExtensions.GenerateButtonSet(next.answerList);
-					return new ResponceResult()
-					{
-						type = ResponceResultType.Valid,
-						message = result.errorText,
-						buttons = buttons
-					};
-				}
-
-				if (next != null)
-				{
-					KeyboardButton[][] buttons = null;
-					if (next.answerType == AnswerTypes.List)
-						buttons = ButtonExtensions.GenerateButtonSet(next.answerList);
-					return new ResponceResult()
-					{
-						type = ResponceResultType.Valid,
-						message = config[systemAnswersFile, "nextQuestion"] + result.nextQuestion.questionText,
-						buttons = buttons
-					};
-				}
-				else
-				{
-					user.pollState = Domain.PollState.Completed;
-					await userRepository.Update(user);
-					return new ResponceResult()
-					{
-						type = ResponceResultType.Valid,
-						message = config[systemAnswersFile, "pollComplete"]
-					};
-				}
-			}
+				return await GetPollAnswerMessageResponce(user, message);
 			return new ResponceResult()
 			{
 				type = ResponceResultType.Invalid,
