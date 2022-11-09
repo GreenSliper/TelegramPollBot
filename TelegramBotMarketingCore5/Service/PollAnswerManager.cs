@@ -46,7 +46,7 @@ namespace TelegramBotMarketingCore5.Service
 				case AnswerTypes.List:
 					if(current.nextIds.Count == 1)
 						return await pollQuestionRepository.Get(current.nextIds[0]);
-					int answerId = current.answerList.IndexOf(currentAnswer);
+					int answerId = current.FormattedAnswers.IndexOf(currentAnswer);
 					if (current.answerList.Count != current.nextIds.Count || answerId == -1)
 						throw new NextQuestionUndecidableException();
 					return await pollQuestionRepository.Get(current.nextIds[answerId]);
@@ -71,11 +71,11 @@ namespace TelegramBotMarketingCore5.Service
 						errorMessage = config[systemAnswersFile, "errorAnswerEmpty"];
 					break;
 				case AnswerTypes.PositiveInteger:
-					if (!int.TryParse(ans, out var num) || num < 0)
+					if (!int.TryParse(ans, out var num) || num < 1)
 						errorMessage = config[systemAnswersFile, "errorAnswerNonPositiveInt"];
 					break;
 				case AnswerTypes.List:
-					if (!pollQuestion.answerList.Contains(ans))
+					if (!pollQuestion.FormattedAnswers.Contains(ans))
 						errorMessage = config[systemAnswersFile, "errorAnswerNotFromList"];
 					break;
 			}

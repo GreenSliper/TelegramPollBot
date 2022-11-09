@@ -14,5 +14,6 @@ namespace TelegramBotMarketingCore5.Domain
 		public AnswerTypes answerType;
 		public List<string> answerList = new();
 		public List<string> nextIds = new();
+		public List<string> FormattedAnswers { get => answerList.Select(x => x.ToLower().Trim()).ToList(); }
 	}
 }
