@@ -45,13 +45,20 @@ namespace TelegramBotMarketing.Service
 			else if (user != null)
 			{
 				var result = await pollAnswerManager.TryAddAnswer(message);
-				if(!result.valid)
+				var next = result.nextQuestion;
+
+				if (!result.valid)
+				{
+					KeyboardButton[][] buttons = null;
+					if (next != null && next.answerType == AnswerTypes.List)
+						buttons = ButtonExtensions.GenerateButtonSet(next.answerList);
 					return new ResponceResult()
 					{
 						type = ResponceResultType.Valid,
-						message = result.errorText
+						message = result.errorText,
+						buttons = buttons
 					};
-				var next = result.nextQuestion;
+				}
 
 				if (next != null)
 				{

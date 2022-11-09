@@ -82,7 +82,8 @@ namespace TelegramBotMarketingCore5.Service
 			if (!string.IsNullOrEmpty(errorMessage))
 				return new PollAnswerFeedback(){
 					valid = false,
-					errorText = errorMessage
+					errorText = errorMessage,
+					nextQuestion = pollQuestion
 				};
 			user.questionAnswers.Add(new UserData.Answer() { answer = ans, questionId = pollQuestion.id });
 			await userRepository.Update(user);
